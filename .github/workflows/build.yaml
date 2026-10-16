@@ -3,7 +3,7 @@ name: Build libmpv-android
 # 说明：本 workflow 刻意不使用任何 `uses:`（actions/checkout 等）。
 # 原因：本仓库是 fork，仓库级 Actions 白名单会拦截 marketplace action，
 # 任何 `uses:` 都会在 "Set up job" 阶段秒失败（实测 v4 / v7 均如此）。
-# 因此 checkout 用 git clone、发布用预装的 gh CLI 代替。
+# 因此：checkout 用 git clone、日志与产物用预装的 gh CLI 发到 release。
 
 on:
   push:
@@ -21,69 +21,82 @@ jobs:
     env:
       ANDROID_HOME: /usr/local/lib/android/sdk
       ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      GH_REPO: mikety696/libmpv-android-video-build
 
     steps:
-      - name: Checkout (git clone, no actions/checkout)
+      - name: Build (arm64 only)
+        id: build
+        continue-on-error: true
         run: |
-          # runner 的工作目录非空，git clone 到 "." 会报
-          # "destination path '.' already exists and is not an empty directory"
-          echo "== workspace 清空前 =="
-          ls -la
-          find . -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-          git clone --depth 1 -b main https://github.com/mikety696/libmpv-android-video-build.git .
-          git log --oneline -1
-          echo "== checkout 后 =="
-          ls -la
+          set -xo pipefail
+          {
+            echo "===== 1. checkout ====="
+            cd "$GITHUB_WORKSPACE"
+            git clone --depth 1 -b main "https://github.com/${GH_REPO}.git" repo
+            cd repo
+            git log --oneline -1
 
-      - name: Install JDK 17 and native build tools
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y --no-install-recommends \
-            openjdk-17-jdk autoconf automake pkg-config libtool \
-            ninja-build nasm unzip zip python3-pip python3-setuptools
-          java -version
-          javac -version
+            echo "===== 2. apt ====="
+            sudo apt-get update -y
+            sudo apt-get install -y --no-install-recommends \
+              openjdk-17-jdk autoconf automake pkg-config libtool \
+              ninja-build nasm unzip zip python3-pip python3-setuptools
+            java -version
+            javac -version
 
-      - name: Install meson
-        run: |
-          sudo pip3 install meson || sudo pip3 install --break-system-packages meson
-          meson --version
+            echo "===== 3. meson ====="
+            sudo pip3 install meson || sudo pip3 install --break-system-packages meson
+            meson --version
 
-      - name: Symlink Android SDK into buildscripts
-        working-directory: ./buildscripts
-        run: |
-          mkdir -p sdk
-          ln -sfn "${ANDROID_HOME}" ./sdk/android-sdk-linux
-          ls -la sdk/
-          ls "${ANDROID_HOME}" | head -20
+            echo "===== 4. symlink sdk ====="
+            cd buildscripts
+            mkdir -p sdk
+            ln -sfn "${ANDROID_HOME}" ./sdk/android-sdk-linux
+            ls -la sdk/
+            ls "${ANDROID_HOME}"
 
-      - name: Bundle (default flavor, arm64 only)
-        working-directory: ./buildscripts
-        run: |
-          chmod +x ./*.sh ./include/*.sh ./flavors/*.sh
-          ./bundle_default.sh
+            echo "===== 5. bundle (arm64) ====="
+            chmod +x ./*.sh ./include/*.sh ./flavors/*.sh
+            ./bundle_default.sh
 
-      - name: Show produced jars
-        run: |
-          ls -la buildscripts/*.jar buildscripts/*.zip
+            echo "===== 6. artifacts ====="
+            ls -la ./*.jar ./*.zip
+            md5sum ./*.jar
+          } 2>&1 | tee /tmp/ci.log
 
-      - name: Publish jars to release vnext
+      - name: Publish CI log (release asset)
+        if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: mikety696/libmpv-android-video-build
         run: |
-          set -e
-          cd buildscripts
-          # release 已存在则先删（tag + release），保证每次构建都是最新产物
+          set -x
+          if gh release view cilog --repo "$GH_REPO" >/dev/null 2>&1; then
+            gh release delete cilog --repo "$GH_REPO" --yes || true
+            gh api -X DELETE "repos/$GH_REPO/git/refs/tags/cilog" >/dev/null 2>&1 || true
+          fi
+          cp /tmp/ci.log ./ci.log
+          gh release create cilog --repo "$GH_REPO" --target main \
+            --title "CI log" --notes "build log for run $GITHUB_RUN_ID" ./ci.log
+
+      - name: Publish jars (release vnext)
+        if: steps.build.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -x
+          cd "$GITHUB_WORKSPACE/repo/buildscripts"
           if gh release view vnext --repo "$GH_REPO" >/dev/null 2>&1; then
-            echo "删除旧 release vnext"
             gh release delete vnext --repo "$GH_REPO" --yes || true
             gh api -X DELETE "repos/$GH_REPO/git/refs/tags/vnext" >/dev/null 2>&1 || true
           fi
-          gh release create vnext \
-            --repo "$GH_REPO" \
-            --target main \
+          gh release create vnext --repo "$GH_REPO" --target main \
             --title "vnext" \
-            --notes "automated build: v1.1.7 + pan/channelsplit/amerge/aformat audio filters (arm64 only)" \
+            --notes "v1.1.7 + pan/channelsplit/amerge/aformat (arm64 only)" \
             ./*.jar ./*.zip
           gh release view vnext --repo "$GH_REPO" --json assets --jq '.assets[].name'
+
+      - name: Fail job if build failed
+        if: steps.build.outcome == 'failure'
+        run: |
+          echo "构建失败，日志已发布到 release cilog"
+          exit 1
