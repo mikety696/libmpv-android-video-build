@@ -1,0 +1,27 @@
+name: Probe
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  a-runner-only:
+    name: A runner-only 22.04
+    runs-on: ubuntu-22.04
+    steps:
+      - run: echo "A ok"
+
+  b-action-v4:
+    name: B checkout v4 on 22.04
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "B ok"
+
+  c-action-v7:
+    name: C checkout v7 on 24.04
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: echo "C ok"
