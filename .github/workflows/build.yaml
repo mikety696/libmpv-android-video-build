@@ -69,8 +69,10 @@ jobs:
             ./bundle_default.sh
 
             echo "===== 6. artifacts ====="
-            ls -la ./*.jar ./*.zip
-            md5sum ./*.jar
+            # jar 是在 deps/media-kit-android-helper/.../apk/release/ 里生成的，
+            # 不在 buildscripts 根目录，必须递归找
+            find . -name '*.jar' -print -exec ls -la {} \;
+            find . -name '*.jar' -exec md5sum {} \;
           } 2>&1 | tee /tmp/ci.log
 
       - name: Publish CI log (release asset)
@@ -94,6 +96,9 @@ jobs:
         run: |
           set -x
           cd "$GITHUB_WORKSPACE/repo/buildscripts"
+          mapfile -t JARS < <(find . -name 'default-*.jar')
+          echo "找到 jar: ${JARS[@]}"
+          if [ ${#JARS[@]} -eq 0 ]; then echo "ERROR: 没找到任何 default-*.jar"; exit 1; fi
           if gh release view vnext --repo "$GH_REPO" >/dev/null 2>&1; then
             gh release delete vnext --repo "$GH_REPO" --yes || true
             gh api -X DELETE "repos/$GH_REPO/git/refs/tags/vnext" >/dev/null 2>&1 || true
@@ -101,7 +106,7 @@ jobs:
           gh release create vnext --repo "$GH_REPO" --target main \
             --title "vnext" \
             --notes "v1.1.7 + pan/channelsplit/amerge/aformat (arm64 only)" \
-            ./*.jar ./*.zip
+            "${JARS[@]}"
           gh release view vnext --repo "$GH_REPO" --json assets --jq '.assets[].name'
 
       - name: Fail job if build failed
