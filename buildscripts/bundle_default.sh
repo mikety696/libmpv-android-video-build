@@ -21,9 +21,10 @@ if [ -e "prefix" ]; then sudo rm -rf prefix; fi
 
 # --------------------------------------------------
 
-if [ ! -f "scripts/ffmpeg" ]; then
-  rm scripts/ffmpeg.sh
-fi
+# 上游是 `[ ! -f "scripts/ffmpeg" ] && rm scripts/ffmpeg.sh`：v1.1.7 里
+# scripts/ 下既没有 ffmpeg 也没有 ffmpeg.sh（ffmpeg 的配置来自 flavors/），
+# 所以那个 rm 必然报 "No such file or directory" 并中止脚本。
+rm -f scripts/ffmpeg.sh
 cp flavors/default.sh scripts/ffmpeg.sh
 
 # --------------------------------------------------
@@ -54,6 +55,8 @@ sudo chmod +x gradlew
 
 unzip -o app/build/outputs/apk/release/app-release.apk -d app/build/outputs/apk/release
 
+# 兜底：APK 若没带该 ABI 的原生库目录，先建出来
+mkdir -p app/build/outputs/apk/release/lib/${ABI}
 cp ../../prefix/${ABI}/usr/local/lib/libmpv.so app/build/outputs/apk/release/lib/${ABI}
 
 cd app/build/outputs/apk/release
