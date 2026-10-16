@@ -5,23 +5,33 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+
 jobs:
-  a-runner-only:
-    name: A runner-only 22.04
+  d-no-uses:
+    name: D no-uses clone + gh
     runs-on: ubuntu-22.04
     steps:
-      - run: echo "A ok"
-
-  b-action-v4:
-    name: B checkout v4 on 22.04
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - run: echo "B ok"
-
-  c-action-v7:
-    name: C checkout v7 on 24.04
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v7
-      - run: echo "C ok"
+      - name: clone self
+        run: |
+          git clone --depth 1 https://github.com/mikety696/libmpv-android-video-build.git src
+          ls src | head
+      - name: gh availability
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          which gh && gh --version
+          echo "--- auth ---"
+          gh auth status || true
+          echo "--- api ---"
+          gh api repos/mikety696/libmpv-android-video-build --jq .full_name || true
+      - name: apt + jdk
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y openjdk-17-jdk
+          java -version
+      - name: python meson (PEP668 check)
+        run: |
+          python3 --version
+          python3 -c "import sysconfig,os;print('externally-managed:', os.path.exists(os.path.join(sysconfig.get_path('stdlib'),'EXTERNALLY-MANAGED')))" || true
