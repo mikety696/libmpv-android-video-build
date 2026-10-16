@@ -36,11 +36,20 @@ jobs:
             cd repo
             git log --oneline -1
 
-            echo "===== 2. apt ====="
+            echo "===== 2. apt + JDK 17 ====="
             sudo apt-get update -y
             sudo apt-get install -y --no-install-recommends \
               openjdk-17-jdk autoconf automake pkg-config libtool \
               ninja-build nasm unzip zip python3-pip python3-setuptools
+            # runner 镜像自带 Temurin 11 且优先出现在 PATH，但
+            # deps/media-kit-android-helper 用的 AGP 要求 Java 17
+            # （报错：Android Gradle plugin requires Java 17 to run）
+            JDK17=$(ls -d /usr/lib/jvm/java-17-openjdk-* 2>/dev/null | head -n 1)
+            [ -z "$JDK17" ] && JDK17=$(ls -d /usr/lib/jvm/temurin-17-jdk-* 2>/dev/null | head -n 1)
+            if [ -z "$JDK17" ]; then echo "ERROR: 找不到 JDK 17"; exit 1; fi
+            export JAVA_HOME="$JDK17"
+            export PATH="$JAVA_HOME/bin:$PATH"
+            echo "JAVA_HOME=$JAVA_HOME"
             java -version
             javac -version
 
