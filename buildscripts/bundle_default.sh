@@ -1,10 +1,9 @@
 # --------------------------------------------------
-set -euxo pipefail
 
-if [ -d "deps" ]; then
+if [ ! -f "deps" ]; then
   sudo rm -r deps
 fi
-if [ -d "prefix" ]; then
+if [ ! -f "prefix" ]; then
   sudo rm -r prefix
 fi
 
@@ -13,7 +12,7 @@ fi
 
 # --------------------------------------------------
 
-if [ -f "scripts/ffmpeg" ]; then
+if [ ! -f "scripts/ffmpeg" ]; then
   rm scripts/ffmpeg.sh
 fi
 cp flavors/default.sh scripts/ffmpeg.sh
@@ -24,11 +23,10 @@ cp flavors/default.sh scripts/ffmpeg.sh
 
 zip -r debug-symbols-default.zip prefix/*/lib
 
-. ./include/depinfo.sh
-./sdk/android-sdk-linux/ndk/$v_ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-all prefix/arm64-v8a/usr/local/lib/libmpv.so
-./sdk/android-sdk-linux/ndk/$v_ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-all prefix/armeabi-v7a/usr/local/lib/libmpv.so
-./sdk/android-sdk-linux/ndk/$v_ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-all prefix/x86/usr/local/lib/libmpv.so
-./sdk/android-sdk-linux/ndk/$v_ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-all prefix/x86_64/usr/local/lib/libmpv.so
+./sdk/android-sdk-linux/ndk/27.3.13750724/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-all prefix/arm64-v8a/usr/local/lib/libmpv.so
+./sdk/android-sdk-linux/ndk/27.3.13750724/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-all prefix/armeabi-v7a/usr/local/lib/libmpv.so
+./sdk/android-sdk-linux/ndk/27.3.13750724/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-all prefix/x86/usr/local/lib/libmpv.so
+./sdk/android-sdk-linux/ndk/27.3.13750724/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-all prefix/x86_64/usr/local/lib/libmpv.so
 
 # --------------------------------------------------
 
@@ -52,8 +50,3 @@ zip -r default-x86.jar            lib/x86/*.so
 zip -r default-x86_64.jar         lib/x86_64/*.so
 
 md5sum *.jar
-
-cd ../../../../../../..
-
-mkdir -p artifacts/default
-cp deps/media-kit-android-helper/app/build/outputs/apk/release/default-*.jar artifacts/default/
