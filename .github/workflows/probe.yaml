@@ -9,29 +9,28 @@ permissions:
   contents: write
 
 jobs:
-  d-no-uses:
-    name: D no-uses clone + gh
+  net:
+    name: Network probe
     runs-on: ubuntu-22.04
     steps:
-      - name: clone self
+      - name: basic env
         run: |
-          git clone --depth 1 https://github.com/mikety696/libmpv-android-video-build.git src
-          ls src | head
-      - name: gh availability
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "runner os: $(cat /etc/os-release | grep PRETTY)"
+          echo "whoami: $(whoami)"
+          df -h / | tail -1
+      - name: test github https
         run: |
-          which gh && gh --version
-          echo "--- auth ---"
-          gh auth status || true
-          echo "--- api ---"
-          gh api repos/mikety696/libmpv-android-video-build --jq .full_name || true
-      - name: apt + jdk
+          curl -sS -o /dev/null -w "github.com -> %{http_code}\n" --max-time 20 https://github.com/ || echo "github curl FAILED exit=$?"
+      - name: test codeload
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y openjdk-17-jdk
-          java -version
-      - name: python meson (PEP668 check)
+          curl -sS -o /dev/null -w "codeload -> %{http_code}\n" --max-time 20 https://codeload.github.com/media-kit/libmpv-android-video-build/tar.gz/refs/tags/v1.1.7 || echo "codeload FAILED exit=$?"
+      - name: test dl.google.com
         run: |
-          python3 --version
-          python3 -c "import sysconfig,os;print('externally-managed:', os.path.exists(os.path.join(sysconfig.get_path('stdlib'),'EXTERNALLY-MANAGED')))" || true
+          curl -sS -o /dev/null -w "dl.google.com -> %{http_code}\n" --max-time 20 https://dl.google.com/android/repository/repository2-3.xml || echo "dl.google FAILED exit=$?"
+      - name: test api.github
+        run: |
+          curl -sS -o /dev/null -w "api.github.com -> %{http_code}\n" --max-time 20 https://api.github.com/ || echo "api FAILED exit=$?"
+      - name: test git clone verbose
+        run: |
+          git clone --depth 1 https://github.com/mikety696/libmpv-android-video-build.git src 2>&1 | tail -20
+          echo "clone exit=${PIPESTATUS[0]}"
