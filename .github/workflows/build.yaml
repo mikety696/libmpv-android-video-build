@@ -105,7 +105,7 @@ jobs:
           fi
           gh release create vnext --repo "$GH_REPO" --target main \
             --title "vnext" \
-            --notes "v1.1.7 + pan/channelsplit/amerge/aformat (arm64 only)" \
+            --notes "v1.1.7 + pan/channelsplit/amerge/aformat + rv10-40/cook/sipr/raac (RealMedia, arm64 only)" \
             "${JARS[@]}"
           gh release view vnext --repo "$GH_REPO" --json assets --jq '.assets[].name'
 
