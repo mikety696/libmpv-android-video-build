@@ -11,12 +11,10 @@ ABI=arm64-v8a
 
 # --------------------------------------------------
 
-if [ ! -f "deps" ]; then
-  sudo rm -r deps
-fi
-if [ ! -f "prefix" ]; then
-  sudo rm -r prefix
-fi
+# 上游原写法是 `[ ! -f "deps" ] && sudo rm -r deps`：目录不存在时条件为真，
+# 于是去 rm 一个不存在的路径 -> "cannot remove 'deps'" -> 脚本直接中止。
+if [ -e "deps" ]; then sudo rm -rf deps; fi
+if [ -e "prefix" ]; then sudo rm -rf prefix; fi
 
 ./download.sh
 ./patch.sh
