@@ -25,8 +25,14 @@ jobs:
     steps:
       - name: Checkout (git clone, no actions/checkout)
         run: |
+          # runner 的工作目录非空，git clone 到 "." 会报
+          # "destination path '.' already exists and is not an empty directory"
+          echo "== workspace 清空前 =="
+          ls -la
+          find . -mindepth 1 -maxdepth 1 -exec rm -rf {} +
           git clone --depth 1 -b main https://github.com/mikety696/libmpv-android-video-build.git .
           git log --oneline -1
+          echo "== checkout 后 =="
           ls -la
 
       - name: Install JDK 17 and native build tools
